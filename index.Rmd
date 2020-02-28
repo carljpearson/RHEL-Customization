@@ -5,7 +5,11 @@ date: "2/27/2020"
 output: html_document
 ---
 
-```{r setup, include=FALSE}
+Participants ranked what would be most important to them to customize. What options are significantly higher ranked than others?
+
+```{r setup, echo=T, results='hide', message=F, warning=F}
+
+#load packages
 library(tidyverse)
 library(rstatix)
 library(ggpubr)
@@ -14,24 +18,30 @@ knitr::opts_chunk$set(fig.width=12, fig.height=8)
 
 #read data
 dat <- read_csv("/Users/carlpearson/Documents/r_github/RHEL-Customization-Tickets/do_not_upload/cust_ranking_dat.csv",col_names = T)
+
 #remove commas from colnames
 colnames(dat) <- gsub(",",";", colnames(dat))
 colnames(dat) <- gsub("-","", colnames(dat))
 
 df_long <- dat %>% 
-  rename(id=`Response ID`) %>%
-  pivot_longer(-id) %>%
-  mutate(name_s=str_trunc(name,width=15,side="right",ellipsis = "")) %>%
-  na.omit()
+  rename(id=`Response ID`) %>% #rename variable
+  mutate(id=as.numeric(as.factor(id))) %>% #anonymize data
+  pivot_longer(-id) %>% #elongate data
+  mutate(name_s=str_trunc(name,width=15,side="right",ellipsis = "")) %>% #create shorter names
+  na.omit() #remove NAs
 
 ```
-
-# Customization Options
-
-Participants ranked what would be most important to them to customize. First, let us assess the data to get an awareness of the distribution of ranks.
-
 ```{r data, echo=F}
-head(df_long)
+head(df_long) %>%
+  kable() %>% 
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+
+The distribution of ranks shows variation across all options with 'Configure remote...' looking to be lowest and 'Options to enroll...' looking to be the highest.
+
+
+```{r plot, echo=F}
 
 df_long %>%
   ggplot(aes(value, fill=name_s)) +
@@ -44,24 +54,28 @@ df_long %>%
     strip.text.x = element_blank()
   )  +
   scale_x_continuous(breaks = c(1,4,7)) +
-  labs(y="Rank Count",x="Rank") 
+  labs(y="Rank Count",x="Rank",caption = "1 is most important, 7 is least important") 
 
 ```
 
 ## Rank tests
 
-With our rank data, we'll need to use a non-parametric approach. Our data are an unreplicated block design (where we treat blocks as participants) so we can use the Friedman test and its an exact posthoc test. Below we see that the test is signficant so ranks differ between customization options. The effect size is small, but not miniscule. 
+With our rank data, we'll need to use a non-parametric approach to assess statistical significance of the ranks. Our data are an unreplicated block design (where we treat blocks as participants) so we can use the Friedman test and its an exact posthoc test. Below we see that the test is signficant so ranks differ between customization options. The effect size is small, but not miniscule. 
 
 ```{r mod, echo=F}
 
 #friedman test
 res.fried <- df_long %>%
   friedman_test(value ~ name_s | id)
-res.fried
+res.fried %>%
+  kable() %>% 
+  kable_styling(bootstrap_options = c("striped", "hover"))
 
 #effect size
 df_long %>%
-  friedman_effsize(value ~ name_s | id)
+  friedman_effsize(value ~ name_s | id) %>%
+  kable() %>% 
+  kable_styling(bootstrap_options = c("striped", "hover"))
 
 
 ```
