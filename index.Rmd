@@ -1,0 +1,89 @@
+---
+title: "Customization Rank Test"
+author: "Carl Pearson"
+date: "2/27/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(rstatix)
+library(ggpubr)
+library(kableExtra)
+knitr::opts_chunk$set(fig.width=12, fig.height=8) 
+
+#read data
+dat <- read_csv("/Users/carlpearson/Documents/r_github/RHEL-Customization-Tickets/do_not_upload/cust_ranking_dat.csv",col_names = T)
+#remove commas from colnames
+colnames(dat) <- gsub(",",";", colnames(dat))
+colnames(dat) <- gsub("-","", colnames(dat))
+
+df_long <- dat %>% 
+  rename(id=`Response ID`) %>%
+  pivot_longer(-id) %>%
+  mutate(name_s=str_trunc(name,width=15,side="right",ellipsis = "")) %>%
+  na.omit()
+
+```
+
+# Customization Options
+
+Participants ranked what would be most important to them to customize. First, let us assess the data to get an awareness of the distribution of ranks.
+
+```{r data, echo=F}
+head(df_long)
+
+df_long %>%
+  ggplot(aes(value, fill=name_s)) +
+  geom_histogram(binwidth = 1) +
+  geom_label(aes(label=name_s,y=3,x=4),fill="white")+
+  facet_wrap(~name_s,ncol=1) +
+  ggthemes::theme_tufte(base_family = "sans",base_size = 15) +
+  theme(
+    legend.position = "none",
+    strip.text.x = element_blank()
+  )  +
+  scale_x_continuous(breaks = c(1,4,7)) +
+  labs(y="Rank Count",x="Rank") 
+
+```
+
+## Rank tests
+
+With our rank data, we'll need to use a non-parametric approach. Our data are an unreplicated block design (where we treat blocks as participants) so we can use the Friedman test and its an exact posthoc test. Below we see that the test is signficant so ranks differ between customization options. The effect size is small, but not miniscule. 
+
+```{r mod, echo=F}
+
+#friedman test
+res.fried <- df_long %>%
+  friedman_test(value ~ name_s | id)
+res.fried
+
+#effect size
+df_long %>%
+  friedman_effsize(value ~ name_s | id)
+
+
+```
+Now we need to conduct the posthoc test to see which options are statistically at a different rank. We use a pairwise Wilcoxon-Sign to see which options are significantly different from each other.
+
+
+```{r posthoc, echo=F}
+
+mod.pairwise <- df_long %>%
+  arrange(id) %>% #order needs to be by ID
+  pairwise_wilcox_test(value ~ name_s, p.adjust.method = "holm")
+
+mod.pairwise %>%
+  arrange(p) %>%
+  kable() %>% 
+  kable_styling(bootstrap_options = c("striped", "hover"))
+
+```
+
+
+
+
+
+
+
